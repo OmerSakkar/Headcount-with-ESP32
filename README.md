@@ -2,7 +2,7 @@
 
 
 ## Project Descripotion
-The main aim of the code in this repo is to count the number of people(beacons(staff tags)) found inside a prespecified area using ESP32 BLE scanner. It was done as part of [Quasar](https://sites.google.com/view/bordaquasar/home?authuser=0) project during Borda academy 2022 internship program.
+The main aim of the code in this repo is to count the number of people(beacons(staff tags)) found inside a prespecified area using ESP32 BLE scanner. The major and the minor number of the tags is used to identify the tag holder. The project was done as part of [Quasar](https://sites.google.com/view/bordaquasar/home?authuser=0) project during Borda academy 2022 internship program.
 
 ## Code Structure
 The code starts by preforming a BLE scanning for three seconds. During the scannig duration, iBeacons that has the predefined UUID (so called *Staff tags*) get saved in a buffer along with their corresponding RSSI values. Upon the end of the scanning, an Interrupter gets triggered where a semaphore variable is given to the mqtt task. The mqtt task in turn, extracts the data from the buffer, turns it to the message format requested by the data team, sends it to an external server (we used raspberry pi 3 as an external server)using MQTT protocol, and finally restart the scanning for the next round.

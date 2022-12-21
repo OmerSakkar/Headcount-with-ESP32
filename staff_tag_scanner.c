@@ -32,15 +32,15 @@
 #include "wifi_station.h"
 
 #define TIMER_DIVIDER   (16)
-#define TIMER_SCALE     (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
-#define SAFE_DURATION   ((20)*(TIMER_SCALE)/1000) //trigger the interrupt in  (scan duration+10ms) to make sure that scan duration ends before triggering the interrupter 
+#define TIMER_SCALE     (TIMER_BASE_CLK / TIMER_DIVIDER) 
+#define SAFE_DURATION   ((20)*(TIMER_SCALE)/1000)  
 #define STAFF_TAG_TOPIC "/o1/st" 
 
 #define MQTT_BROKER_URI ""
 #define MQTT_BROKER_USER_NAME ""
 #define MQTT_BROKER_PASSWORD ""
 
-///Declare static functions
+
 static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
 
 static const char* DEMO_TAG = "IBEACON_DEMO";
@@ -89,7 +89,6 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 
     switch (event) {
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT: {
-        //the unit of the duration is second, 0 means scan permanently
         uint32_t duration = SCAN_DURATION_IN_S; 
         esp_ble_gap_start_scanning(duration);
         break;
@@ -112,7 +111,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                 esp_ble_ibeacon_t *ibeacon_data = (esp_ble_ibeacon_t*)(scan_result->scan_rst.ble_adv);
                 ESP_LOGI(DEMO_TAG, "----------staff tag found----------");
         
-                uint16_t major =ENDIAN_CHANGE_U16(ibeacon_data->ibeacon_vendor.major);
+                uint16_t major = ENDIAN_CHANGE_U16(ibeacon_data->ibeacon_vendor.major);
                 uint16_t minor = ENDIAN_CHANGE_U16(ibeacon_data->ibeacon_vendor.minor);
                 int8_t measured_power = ibeacon_data->ibeacon_vendor.measured_power;
                 int rssi = scan_result->scan_rst.rssi;
@@ -123,7 +122,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                 for(uint16_t i = 0; i<num_of_tags; i++){
                     ESP_LOGI(DEMO_TAG, "at least we're here");
                     if(scanned_tags[i].minor == minor && scanned_tags[i].major == major ){ //if the tag was found before during this scan duration
-                        tag_index = i; //update tag_index
+                        tag_index = i; 
                     }
                 }
                 if(tag_index == num_of_tags){ //if the current tag has never been encountered in this scan duration
@@ -134,7 +133,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                     }
                     else{
                         scanned_tags[tag_index].size = 0; 
-                        scanned_tags[tag_index].major = major; //Save major,minor and power ONLY in our 1st encounter of the tag
+                        scanned_tags[tag_index].major = major; 
                         scanned_tags[tag_index].minor = minor;
                         scanned_tags[tag_index].measured_power = measured_power;
                         num_of_tags++;
@@ -187,7 +186,7 @@ static void mqtt_publish_task(void *arg)
         //TODO use Task Notifications instead of binary semaphore
         if( xSemaphoreTake(timer_sem, portMAX_DELAY) )
         {
-            if (num_of_tags == 0){//if no tag is found(office is empty)
+            if (num_of_tags == 0){
                 esp_mqtt_client_publish(staff_tag_client, STAFF_TAG_TOPIC ,"0", 0, 1, 0);
             }
             else
@@ -197,14 +196,10 @@ static void mqtt_publish_task(void *arg)
                 uint16_t length = 0 ;
                 ESP_LOGI(DEMO_TAG, "num_of_tags = %u", num_of_tags);
                 for(uint16_t i=0; i<num_of_tags; i++ ){
-                    //length = 0; // 0 to overwrite the buffer at each iteration
-                    length += snprintf(message_buffer+length, MQTT_TOTAL_MESSAGE_LENGHT-length, ";%d", scanned_tags[i].major);
-                    length += snprintf(message_buffer+length, MQTT_TOTAL_MESSAGE_LENGHT-length, ",%d", scanned_tags[i].minor);  //convert minor to string + append it to buffer (" major,minor")
-                    length += snprintf(message_buffer+length, MQTT_TOTAL_MESSAGE_LENGHT-length, ",%d", scanned_tags[i].measured_power);
+                    length += snprintf(message_buffer+length, MQTT_TOTAL_MESSAGE_LENGHT-length, ";%d,%d,%d", scanned_tags[i].major, , scanned_tags[i].minor, scanned_tags[i].measured_power);
                     for(uint16_t j=0; j<scanned_tags[i].size; j++ ){
                         length += snprintf(message_buffer+length,  MQTT_TOTAL_MESSAGE_LENGHT-length, ",%d", scanned_tags[i].rssi[j]); //rssi1,rssi2,....
-                    }
-                    //length += snprintf(message_buffer+length, MQTT_TOTAL_MESSAGE_LENGHT-length, "");  
+                    } 
                 }
                 esp_mqtt_client_publish(staff_tag_client, STAFF_TAG_TOPIC , message_buffer, 0, 1, 0);              
                 reset_staff_tags(scanned_tags, num_of_tags); //*important for size validity checking in esp callback function
@@ -236,7 +231,7 @@ void app_main(void)
     esp_bt_controller_init(&bt_cfg);
     esp_bt_controller_enable(ESP_BT_MODE_BLE);
 
-    /*/-----------------------------timer configurations------------------------------/*/
+    
     timer_config_t config = {
         .divider = TIMER_DIVIDER,
         .counter_dir = TIMER_COUNT_UP,
@@ -246,21 +241,19 @@ void app_main(void)
     }; // default clock source is APB
     timer_init(TIMER_GROUP_0, TIMER_0, &config);
 
-    /* Timer's counter will initially start from value below.
-       Also, if auto_reload is set, this value will be automatically reload on alarm */
     timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0); 
 
-    /* Configure the alarm value and the interrupt on alarm. */
-    timer_set_alarm_value(TIMER_GROUP_0, TIMER_0,(SCAN_DURATION_IN_S*TIMER_SCALE)+SAFE_DURATION); //trigger alarm after: scan duration + safe area
+    
+    timer_set_alarm_value(TIMER_GROUP_0, TIMER_0,(SCAN_DURATION_IN_S*TIMER_SCALE)+SAFE_DURATION); 
     timer_enable_intr(TIMER_GROUP_0, TIMER_0);
     timer_isr_callback_add(TIMER_GROUP_0, TIMER_0, timer_group_isr_callback, NULL, 0);
-    /*/------------------------------------------------------------------------------------/*/
+
 
     staff_tag_client = esp_mqtt_client_init(&mqtt_config);
     ESP_ERROR_CHECK(esp_mqtt_client_start(staff_tag_client));
     ble_ibeacon_init();
 
-    esp_ble_gap_set_scan_params(&ble_scan_params); // make sure to set the timer configurations befor start scanning
+    esp_ble_gap_set_scan_params(&ble_scan_params);
 
     xTaskCreatePinnedToCore(mqtt_publish_task, "mqtt_task", 4096, NULL, 1, NULL, 1);
 }
